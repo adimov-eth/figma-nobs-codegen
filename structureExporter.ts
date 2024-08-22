@@ -1,64 +1,41 @@
 import { generateSlug } from './utils';
+import { ExtractedData, ExportedNode } from './types';
 
-interface ExportedNode {
-  id: string;
-  name: string;
-  type: string;
-  slug: string;
-  children?: ExportedNode[];
+export function exportToHTML(data: ExtractedData, parentSlug: string = ''): string {
+  const slug = parentSlug ? `${parentSlug}-${generateSlug(data.name)}` : generateSlug(data.name);
+  let html = `<div class="figma-node figma-${data.type.toLowerCase()} ${slug}" data-id="${data.id}">\n`;
+  html += `  <span class="node-name">${data.name}</span>\n`;
+  if (data.children) {
+    data.children.forEach(child => {
+      html += exportToHTML(child, slug);
+    });
+  }
+  html += `</div>\n`;
+  return html;
 }
 
-function traverseNode(node: SceneNode, parentSlug: string = ''): ExportedNode {
-  const slug = parentSlug ? `${parentSlug}-${generateSlug(node.name)}` : generateSlug(node.name);
-  const exportedNode: ExportedNode = {
-    id: node.id,
-    name: node.name,
-    type: node.type,
-    slug: slug,
+export function exportToXML(data: ExtractedData, parentSlug: string = ''): string {
+  const slug = parentSlug ? `${parentSlug}-${generateSlug(data.name)}` : generateSlug(data.name);
+  let xml = `<node id="${data.id}" name="${data.name}" type="${data.type}" slug="${slug}">\n`;
+  if (data.children) {
+    data.children.forEach(child => {
+      xml += exportToXML(child, slug);
+    });
+  }
+  xml += `</node>\n`;
+  return xml;
+}
+
+export function exportToJSON(data: ExtractedData, parentSlug: string = ''): ExportedNode {
+  const slug = parentSlug ? `${parentSlug}-${generateSlug(data.name)}` : generateSlug(data.name);
+  const result: ExportedNode = {
+    id: data.id,
+    name: data.name,
+    type: data.type,
+    slug: slug
   };
-
-  if ('children' in node && Array.isArray(node.children)) {
-    exportedNode.children = node.children.map(child => traverseNode(child as SceneNode, slug));
+  if (data.children) {
+    result.children = data.children.map(child => exportToJSON(child, slug));
   }
-
-  return exportedNode;
-}
-
-export function exportToHTML(node: SceneNode, pageSlug: string): string {
-  function nodeToHTML(node: ExportedNode, depth: number = 0): string {
-    const indent = '  '.repeat(depth);
-    let html = `${indent}<div class="figma-node figma-${node.type.toLowerCase()} ${node.slug}" data-id="${node.id}">\n`;
-    html += `${indent}  <span class="node-name">${node.name}</span>\n`;
-    if (node.children) {
-      node.children.forEach(child => {
-        html += nodeToHTML(child, depth + 1);
-      });
-    }
-    html += `${indent}</div>\n`;
-    return html;
-  }
-
-  const exportedNode = traverseNode(node, pageSlug);
-  return nodeToHTML(exportedNode);
-}
-
-export function exportToXML(node: SceneNode, pageSlug: string): string {
-  function nodeToXML(node: ExportedNode, depth: number = 0): string {
-    const indent = '  '.repeat(depth);
-    let xml = `${indent}<node id="${node.id}" name="${node.name}" type="${node.type}" slug="${node.slug}">\n`;
-    if (node.children) {
-      node.children.forEach(child => {
-        xml += nodeToXML(child, depth + 1);
-      });
-    }
-    xml += `${indent}</node>\n`;
-    return xml;
-  }
-
-  const exportedNode = traverseNode(node, pageSlug);
-  return nodeToXML(exportedNode);
-}
-
-export function exportToJSON(node: SceneNode, pageSlug: string): ExportedNode {
-  return traverseNode(node, pageSlug);
+  return result;
 }

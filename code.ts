@@ -1,9 +1,8 @@
-
 import { generateCSS } from './cssGenerator';
 import { setConfig, getConfig, CSSGeneratorConfig } from './config';
-import { ExtractedData, CodegenResultLanguage, CustomCodegenResult } from './types';
+import { ExtractedData, CustomCodegenResult } from './types';
 import { exportToHTML, exportToXML, exportToJSON } from './structureExporter';
-import { isValidCodegenResult, generateSlug } from './utils'
+import { isValidCodegenResult, generateSlug } from './utils';
 
 const BATCH_SIZE = 100;
 
@@ -35,12 +34,15 @@ async function processNodesInBatches(nodes: ReadonlyArray<SceneNode>): Promise<E
 
 async function processNodeAndChildren(node: SceneNode): Promise<ExtractedData> {
   const config = getConfig();
-  const css = generateCSS(node, config);
+  const { css, nestedCSS } = generateCSS(node, config);
   const data: ExtractedData = {
     id: node.id,
     name: node.name,
     type: node.type,
-    css: css,
+    css: {
+      main: css,
+      nested: nestedCSS
+    },
     properties: {}, // Add properties if needed
     children: []
   };
@@ -51,7 +53,6 @@ async function processNodeAndChildren(node: SceneNode): Promise<ExtractedData> {
 
   return data;
 }
-
 
 figma.ui.onmessage = async (msg: { type: string; config?: Partial<CSSGeneratorConfig> }) => {
   if (msg.type === 'set-config' && msg.config) {
@@ -68,43 +69,40 @@ figma.ui.onmessage = async (msg: { type: string; config?: Partial<CSSGeneratorCo
 
     const extractedData = await processNodesInBatches(nodes);
     const config = getConfig();
-    let generatedCode = '';
+    let cssCode = '';
+    let htmlCode = '';
+    let structureCode = '';
 
-    const generateCodeRecursively = (data: ExtractedData, depth: number = 0) => {
-      const indent = '  '.repeat(depth);
-      generatedCode += `${indent}/* ${data.name} */\n${indent}${data.css}\n\n`;
-      if (data.children && data.children.length > 0) {
-        data.children.forEach(child => generateCodeRecursively(child, depth + 1));
-      }
-    };
+    extractedData.forEach(data => {
+      const slug = generateSlug(data.name);
+      cssCode += `.${slug} {\n${data.css.main}}\n\n`;
+      Object.entries(data.css.nested).forEach(([nestedSlug, nestedCSS]) => {
+        cssCode += `.${slug} .${nestedSlug} {\n${nestedCSS}}\n\n`;
+      });
 
-    extractedData.forEach(data => generateCodeRecursively(data));
+      htmlCode += exportToHTML(data);
+    });
 
-    if (config.exportFormat !== 'none' && nodes.length > 0) {
-      let structureCode = '';
+    let generatedCode = `/* CSS */\n${cssCode}\n/* HTML */\n${htmlCode}`;
+
+    if (config.exportFormat !== 'none' && config.exportFormat !== 'html') {
       switch (config.exportFormat) {
-        case 'html':
-          structureCode = nodes.map(node => {
-            const slug = generateSlug(node.name);
-            return `<div class="figma-page ${slug}">\n${exportToHTML(node, slug)}\n</div>`;
-          }).join('\n\n');
-          break;
         case 'xml':
           structureCode = '<?xml version="1.0" encoding="UTF-8"?>\n<figma-structure>\n' +
-            nodes.map(node => {
-              const slug = generateSlug(node.name);
-              return exportToXML(node, slug);
-            }).join('\n') +
+            extractedData.map(data => exportToXML(data)).join('\n') +
             '</figma-structure>';
           break;
         case 'json':
-          structureCode = JSON.stringify(nodes.map(node => {
-            const slug = generateSlug(node.name);
-            return exportToJSON(node, slug);
-          }), null, 2);
+          structureCode = JSON.stringify(
+            extractedData.map(data => exportToJSON(data)),
+            null,
+            2
+          );
           break;
       }
-      generatedCode += `/* Structure Export (${config.exportFormat.toUpperCase()}) */\n${structureCode}\n`;
+      if (structureCode) {
+        generatedCode += `\n/* Structure Export (${config.exportFormat.toUpperCase()}) */\n${structureCode}`;
+      }
     }
 
     figma.ui.postMessage({ type: 'code-generated', code: generatedCode });
@@ -129,57 +127,58 @@ figma.codegen.on('generate', async (event: CodegenEvent): Promise<CodegenResult[
     const extractedData = await processNodesInBatches(nodes);
     const config = getConfig();
 
-    const generatedCode: CustomCodegenResult[] = extractedData.map(data => {
-      const slug = generateSlug(data.name);
-      const scopedCSS = data.css.split('\n').map(line => {
-        if (line.trim().endsWith('{')) {
-          return `.${slug} ${line}`;
-        }
-        return line;
-      }).join('\n');
+    let cssCode = '';
+    let htmlCode = '';
+    let structureCode = '';
 
-      return {
-        title: `CSS for ${data.name}`,
-        code: scopedCSS,
-        language: 'CSS'
-      };
+    extractedData.forEach(data => {
+      const slug = generateSlug(data.name);
+      cssCode += `.${slug} {\n${data.css.main}}\n\n`;
+      Object.entries(data.css.nested).forEach(([nestedSlug, nestedCSS]) => {
+        cssCode += `.${slug} .${nestedSlug} {\n${nestedCSS}}\n\n`;
+      });
+
+      htmlCode += exportToHTML(data);
     });
 
-    if (config.exportFormat !== 'none' && nodes.length > 0) {
-      let structureCode = '';
-      let language: CodegenResultLanguage;
+    const generatedCode: CustomCodegenResult[] = [
+      {
+        title: 'CSS',
+        code: cssCode,
+        language: 'CSS'
+      },
+      {
+        title: 'HTML',
+        code: htmlCode,
+        language: 'HTML'
+      }
+    ];
+
+    if (config.exportFormat !== 'none' && config.exportFormat !== 'html') {
       switch (config.exportFormat) {
-        case 'html':
-          structureCode = nodes.map(node => {
-            const slug = generateSlug(node.name);
-            return `<div class="figma-page ${slug}">\n${exportToHTML(node, slug)}\n</div>`;
-          }).join('\n\n');
-          language = 'HTML';
-          break;
         case 'xml':
           structureCode = '<?xml version="1.0" encoding="UTF-8"?>\n<figma-structure>\n' +
-            nodes.map(node => {
-              const slug = generateSlug(node.name);
-              return exportToXML(node, slug);
-            }).join('\n') +
+            extractedData.map(data => exportToXML(data)).join('\n') +
             '</figma-structure>';
-          language = 'XML';
+          generatedCode.push({
+            title: 'Structure Export (XML)',
+            code: structureCode,
+            language: 'XML'
+          });
           break;
         case 'json':
-          structureCode = JSON.stringify(nodes.map(node => {
-            const slug = generateSlug(node.name);
-            return exportToJSON(node, slug);
-          }), null, 2);
-          language = 'JSON';
+          structureCode = JSON.stringify(
+            extractedData.map(data => exportToJSON(data)),
+            null,
+            2
+          );
+          generatedCode.push({
+            title: 'Structure Export (JSON)',
+            code: structureCode,
+            language: 'JSON'
+          });
           break;
-        default:
-          language = 'PLAINTEXT';
       }
-      generatedCode.push({
-        title: `Structure Export (${config.exportFormat.toUpperCase()})`,
-        code: structureCode,
-        language
-      });
     }
 
     figma.ui.postMessage({ type: 'generation-complete' });
