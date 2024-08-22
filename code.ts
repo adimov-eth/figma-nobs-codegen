@@ -8,6 +8,38 @@ const BATCH_SIZE = 100;
 
 figma.showUI(__html__, { width: 300, height: 450 });
 
+function generateCodeWithDividers(extractedData: ExtractedData[]): { css: string, html: string } {
+  let cssCode = '';
+  let htmlCode = '';
+
+  extractedData.forEach((data, index) => {
+    const slug = generateSlug(data.name);
+    
+    // Add divider before the node
+    cssCode += `\n/* -------------------- ${data.name} (Start) -------------------- */\n\n`;
+    htmlCode += `\n<!-- -------------------- ${data.name} (Start) -------------------- -->\n\n`;
+
+    cssCode += `.${slug} {\n${data.css.main}}\n\n`;
+    Object.entries(data.css.nested).forEach(([nestedSlug, nestedCSS]) => {
+      cssCode += `.${slug} .${nestedSlug} {\n${nestedCSS}}\n\n`;
+    });
+
+    htmlCode += exportToHTML(data);
+
+    // Add divider after the node
+    cssCode += `\n/* -------------------- ${data.name} (End) -------------------- */\n`;
+    htmlCode += `\n<!-- -------------------- ${data.name} (End) -------------------- -->\n`;
+
+    // Add an extra newline between pages, except for the last one
+    if (index < extractedData.length - 1) {
+      cssCode += '\n';
+      htmlCode += '\n';
+    }
+  });
+
+  return { css: cssCode, html: htmlCode };
+}
+
 async function processNodesInBatches(nodes: ReadonlyArray<SceneNode>): Promise<ExtractedData[]> {
   let allExtractedData: ExtractedData[] = [];
   const totalNodes = nodes.length;
@@ -69,23 +101,12 @@ figma.ui.onmessage = async (msg: { type: string; config?: Partial<CSSGeneratorCo
 
     const extractedData = await processNodesInBatches(nodes);
     const config = getConfig();
-    let cssCode = '';
-    let htmlCode = '';
-    let structureCode = '';
-
-    extractedData.forEach(data => {
-      const slug = generateSlug(data.name);
-      cssCode += `.${slug} {\n${data.css.main}}\n\n`;
-      Object.entries(data.css.nested).forEach(([nestedSlug, nestedCSS]) => {
-        cssCode += `.${slug} .${nestedSlug} {\n${nestedCSS}}\n\n`;
-      });
-
-      htmlCode += exportToHTML(data);
-    });
+    const { css: cssCode, html: htmlCode } = generateCodeWithDividers(extractedData);
 
     let generatedCode = `/* CSS */\n${cssCode}\n/* HTML */\n${htmlCode}`;
 
     if (config.exportFormat !== 'none' && config.exportFormat !== 'html') {
+      let structureCode = '';
       switch (config.exportFormat) {
         case 'xml':
           structureCode = '<?xml version="1.0" encoding="UTF-8"?>\n<figma-structure>\n' +
@@ -127,19 +148,7 @@ figma.codegen.on('generate', async (event: CodegenEvent): Promise<CodegenResult[
     const extractedData = await processNodesInBatches(nodes);
     const config = getConfig();
 
-    let cssCode = '';
-    let htmlCode = '';
-    let structureCode = '';
-
-    extractedData.forEach(data => {
-      const slug = generateSlug(data.name);
-      cssCode += `.${slug} {\n${data.css.main}}\n\n`;
-      Object.entries(data.css.nested).forEach(([nestedSlug, nestedCSS]) => {
-        cssCode += `.${slug} .${nestedSlug} {\n${nestedCSS}}\n\n`;
-      });
-
-      htmlCode += exportToHTML(data);
-    });
+    const { css: cssCode, html: htmlCode } = generateCodeWithDividers(extractedData);
 
     const generatedCode: CustomCodegenResult[] = [
       {
@@ -155,6 +164,7 @@ figma.codegen.on('generate', async (event: CodegenEvent): Promise<CodegenResult[
     ];
 
     if (config.exportFormat !== 'none' && config.exportFormat !== 'html') {
+      let structureCode = '';
       switch (config.exportFormat) {
         case 'xml':
           structureCode = '<?xml version="1.0" encoding="UTF-8"?>\n<figma-structure>\n' +
