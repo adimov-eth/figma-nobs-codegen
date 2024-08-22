@@ -1,0 +1,78 @@
+<html>
+<head>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        label { display: block; margin-top: 10px; }
+        #progressBar { width: 100%; height: 20px; background-color: #f0f0f0; margin-top: 20px; }
+        #progressFill { width: 0%; height: 100%; background-color: #4CAF50; transition: width 0.3s; }
+    </style>
+</head>
+<body>
+    <h2>Nobs CodeGen Configuration</h2>
+    
+    <label>
+        <input type="radio" name="units" value="px" checked> Pixels (px)
+    </label>
+    <label>
+        <input type="radio" name="units" value="rem"> Relative EM (rem)
+    </label>
+    
+    <label>
+        <input type="checkbox" id="includePosition" checked> Include Position
+    </label>
+    
+    <label>
+        <input type="checkbox" id="includeSize" checked> Include Size
+    </label>
+    
+    <label>
+        <input type="checkbox" id="includeFontStyles" checked> Include Font Styles
+    </label>
+    
+    <label>
+        REM Base: <input type="number" id="remBase" value="16" min="1">
+    </label>
+    
+    <button id="updateConfig">Update Configuration</button>
+
+    <div id="progressBar">
+        <div id="progressFill"></div>
+    </div>
+    <p id="progressText"></p>
+    <script>
+    document.getElementById('updateConfig').onclick = updateConfig;
+
+    function updateConfig() {
+        const config = {
+            units: document.querySelector('input[name="units"]:checked').value,
+            includePosition: document.getElementById('includePosition').checked,
+            includeSize: document.getElementById('includeSize').checked,
+            includeFontStyles: document.getElementById('includeFontStyles').checked,
+            remBase: parseInt(document.getElementById('remBase').value, 10)
+        };
+
+        parent.postMessage({ pluginMessage: { type: 'set-config', config } }, '*');
+    }
+
+    // Listen for messages from the plugin code
+    onmessage = (event) => {
+        const message = event.data.pluginMessage;
+        if (message.type === 'config-updated') {
+            console.log('Configuration updated successfully');
+        } else if (message.type === 'progress-update') {
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            progressFill.style.width = `${message.progress}%`;
+            progressText.textContent = `Processing batch ${message.currentBatch} of ${message.totalBatches}`;
+        } else if (message.type === 'generation-started') {
+            console.log(`Starting generation for ${message.nodeCount} nodes`);
+            document.getElementById('progressBar').style.display = 'block';
+            document.getElementById('progressText').textContent = 'Starting generation...';
+        } else if (message.type === 'generation-complete') {
+            console.log('Generation complete');
+            document.getElementById('progressText').textContent = 'Generation complete!';
+        }
+    };
+    </script>
+</body>
+</html>

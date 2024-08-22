@@ -1,5 +1,7 @@
 import { FigmaNode } from './types';
 
+import { isTextNode } from './utils';
+
 export function extractProperties(node: FigmaNode): Record<string, unknown> {
   const properties: Record<string, unknown> = {};
 
@@ -29,7 +31,9 @@ export function extractProperties(node: FigmaNode): Record<string, unknown> {
       extractShapeProperties(node as Extract<FigmaNode, {fills?: readonly Paint[]}>, properties);
       break;
     case 'TEXT':
-      extractTextProperties(node, properties);
+        if (isTextNode(node)) {
+            extractTextProperties(node, properties);
+        }
       break;
     case 'SLICE':
       extractSliceProperties(node, properties);

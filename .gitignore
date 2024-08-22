@@ -103,3 +103,4 @@ Thumbs.db
 
 # Figma plugin specific
 # Add any Figma-specific files or directories you want to ignore
+project_files.txt
