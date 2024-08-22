@@ -4,6 +4,7 @@ export interface CSSGeneratorConfig {
     includeSize: boolean;
     includeFontStyles: boolean;
     remBase: number;
+    exportFormat: 'none' | 'html' | 'xml' | 'json';
   }
   
   export const defaultConfig: CSSGeneratorConfig = {
@@ -11,7 +12,8 @@ export interface CSSGeneratorConfig {
     includePosition: true,
     includeSize: true,
     includeFontStyles: true,
-    remBase: 16
+    remBase: 16,
+    exportFormat: 'none'
   };
   
   let currentConfig: CSSGeneratorConfig = { ...defaultConfig };

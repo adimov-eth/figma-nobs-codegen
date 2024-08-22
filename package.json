@@ -4,10 +4,10 @@
   "description": "Your Figma Plugin",
   "main": "code.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+     "build": "node build.js",
+     "watch": "node build.js --watch",
     "lint": "eslint --ext .ts,.tsx --ignore-pattern node_modules .",
-    "lint:fix": "eslint --ext .ts,.tsx --ignore-pattern node_modules --fix .",
-    "watch": "npm run build -- --watch"
+    "lint:fix": "eslint --ext .ts,.tsx --ignore-pattern node_modules --fix ."
   },
   "author": "",
   "license": "",
@@ -16,6 +16,7 @@
     "@figma/plugin-typings": "^1.98.0",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@typescript-eslint/parser": "^6.12.0",
+    "esbuild": "^0.23.1",
     "eslint": "^8.54.0",
     "typescript": "^5.3.2"
   },

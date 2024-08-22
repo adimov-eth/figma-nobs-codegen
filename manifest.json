@@ -2,20 +2,34 @@
   "name": "nobs-codegen",
   "id": "1408256527339950252",
   "api": "1.0.0",
-  "main": "code.js",
+  "main": "dist/code.js",
   "capabilities": [
-    "codegen"
+    "codegen",
+    "inspect"
   ],
   "enableProposedApi": false,
   "documentAccess": "dynamic-page",
+  "ui": "ui.html",
   "editorType": [
+    "figma",
     "dev"
   ],
-  "ui": "ui.html",
   "codegenLanguages": [
     {
-      "label": "Language Label",
-      "value": "language-value"
+      "label": "CSS",
+      "value": "css"
+    },
+    {
+      "label": "HTML",
+      "value": "html"
+    },
+    {
+      "label": "XML",
+      "value": "xml"
+    },
+    {
+      "label": "JSON",
+      "value": "json"
     }
   ],
   "networkAccess": {
